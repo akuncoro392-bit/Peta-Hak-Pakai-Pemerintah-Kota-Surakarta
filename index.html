@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="./resources/ol.css">
+        <link rel="stylesheet" href="resources/fontawesome-all.min.css">
+        <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="./resources/ol-layerswitcher.css">
+        <link rel="stylesheet" href="./resources/qgis2web.css">
+        <style>
+        html, body {
+            background-color: #ffffff;
+        }
+        .ol-control > * {
+            background-color: #f8f8f8!important;
+            color: #444444!important;
+            border-radius: 0px;
+        }
+        .ol-attribution a, .gcd-gl-input::placeholder, .search-layer-input-search::placeholder {
+            color: #444444!important;
+        }
+        .search-layer-input-search {
+            background-color: #f8f8f8!important;
+        }
+        .ol-control > *:focus, .ol-control >*:hover {
+            background-color: rgba(248, 248, 248, 0.7)!important;
+        } 
+        .ol-control {
+            background-color: rgba(255,255,255,.4) !important;
+            padding: 2px !important;
+        } 
+
+        /* Styling untuk Judul Peta di Atas Tengah */
+        .map-title {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            color: #333333;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        /* MEMAKSA POSISI SKALA LINE KE POJOK KIRI BAWAH */
+        .ol-scale-line {
+            position: absolute !important;
+            bottom: 12px !important;
+            left: 12px !important;
+            top: auto !important;
+            right: auto !important;
+            background: rgba(255, 255, 255, 0.85) !important;
+            border-radius: 4px;
+            padding: 2px 6px;
+            z-index: 1000 !important;
+        }
+        .ol-scale-line-inner {
+            color: #333333 !important;
+            font-size: 11px;
+            font-weight: bold;
+            border-color: #333333 !important;
+        }
+        </style>
+
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        </style>
+        <title>Peta Hak Pakai Pemerintah Kota Surakarta</title>
+    </head>
+    <body>
+        <div id="map">
+            <!-- Elemen Judul Peta di Atas Tengah -->
+            <div class="map-title">Peta Hak Pakai Pemerintah Kota Surakarta</div>
+
+            <div id="popup" class="ol-popup">
+                <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+                <div id="popup-content"></div>
+            </div>
+        </div>
+        <script src="resources/qgis2web_expressions.js"></script>
+        <script src="resources/proj4.js"></script>
+        <script>proj4.defs('EPSG:23835','+proj=tmerc +lat_0=0 +lon_0=109.5 +k=0.9999 +x_0=200000 +y_0=1500000 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');</script>
+        <script src="./resources/functions.js"></script>
+        <script src="./resources/ol.js"></script>
+        <script src="./resources/ol-layerswitcher.js"></script>
+        <script src="resources/photon-geocoder-autocomplete.min.js"></script>
+        <script src="resources/olms.js"></script>
+        <script src="layers/StatusHak_0.js"></script>
+        <script src="styles/StatusHak_0_style.js"></script>
+        <script src="./layers/layers.js" type="text/javascript"></script> 
+        <script src="./resources/Autolinker.min.js"></script>
+        <script src="./resources/qgis2web.js"></script>        
+        
+        <!-- Script untuk Basemap Satelit, Transparansi 75%, & Skala Metrik di Pojok Kiri Bawah -->
+        <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (typeof map !== 'undefined') {
+                    
+                    // 1. Membuat dan Menyisipkan Basemap Satelit Esri di Urutan Paling Bawah
+                    var satelliteLayer = new ol.layer.Tile({
+                        title: 'Satelit Esri',
+                        type: 'base',
+                        visible: true,
+                        source: new ol.source.XYZ({
+                            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                            attributions: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                        })
+                    });
+                    map.getLayers().insertAt(0, satelliteLayer);
+
+                    // 2. Menambahkan Skala Bar Metrik
+                    var scaleLineControl = new ol.control.ScaleLine({
+                        units: 'metric',
+                        bar: false,
+                        text: true,
+                        minWidth: 100
+                    });
+                    map.addControl(scaleLineControl);
+
+                    // 3. Mengatur Opasitas Layer Data Vektor Menjadi 0.75 (75%)
+                    map.getLayers().forEach(function(layer) {
+                        if (layer !== satelliteLayer) {
+                            if (layer instanceof ol.layer.Vector || layer.getSource() instanceof ol.source.Vector) {
+                                layer.setOpacity(0.75);
+                            } else if (layer instanceof ol.layer.Group) {
+                                layer.getLayers().forEach(function(subLayer) {
+                                    if (subLayer instanceof ol.layer.Vector || subLayer.getSource() instanceof ol.source.Vector) {
+                                        subLayer.setOpacity(0.75);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            }, 500);
+        });
+        </script>
+    </body>
+</html>
